@@ -71,3 +71,27 @@
 1. `01-clean-install` — исходный снимок чистой ОС сразу после завершения инсталляции и выполнения `sudo apt update && sudo apt upgrade -y`.
 2. `02-keys-configured` — снимок после создания пользователя `devops`, генерации ключа `devops_vm` на хосте, переноса публичного ключа и настройки конфигурации клиента `~/.ssh/config`.
 3. `03-ssh-hardened` — снимок после применения конфигурации безопасности SSH (порт 2222, отключение root и паролей, включение UFW c правилом LIMIT, обновление правил проброса NAT в VirtualBox).
+4. `04-nginx-https` — снимок после установки Nginx, перевода ресурса devops.local на HTTPS с самоподписанным сертификатом, настройки редиректа 301 с HTTP на HTTPS и отключения дефолтного хоста.
+
+## 8. Веб-сервер
+- **Устанавливаемый пакет:** `nginx` (установка: `sudo apt update && sudo apt install -y nginx`).
+- **Путь к конфигурации ресурса:** `/etc/nginx/sites-available/devops-site` (активирован через символическую ссылку в `/etc/nginx/sites-enabled/devops-site`; стандартный ресурс `/etc/nginx/sites-enabled/default` отключён).
+- **Каталог публикуемого ресурса:** `/var/www/devops-site/` (директива `root`).
+  - Владелец каталога и файлов: `devops:devops`.
+  - Права доступа: `755` (`drwxr-xr-x`) для каталогов, `644` (`-rw-r--r--`) для файлов (модель «владелец пишет, веб-сервер www-data читает»).
+- **Криптографический сертификат и закрытый ключ TLS:**
+  - Путь к открытому сертификату: `/etc/ssl/certs/devops.crt` (владелец `root:root`, права `644` — чтение доступно всем).
+  - Путь к закрытому ключу: `/etc/ssl/private/devops.key` (владелец `root:root`, права `600` — доступ строго суперпользователю, запрещён для `www-data`).
+  - Команда формирования сертификата:
+    ```bash
+    sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+      -keyout /etc/ssl/private/devops.key \
+      -out /etc/ssl/certs/devops.crt \
+      -subj "/CN=devops.local" \
+      -addext "subjectAltName=DNS:devops.local"
+    ```
+  - Срок действия сертификата: 365 дней. Поле SAN: `DNS:devops.local`.
+  - Поддерживаемые протоколы: `TLSv1.2 TLSv1.3`.
+- **Сетевые параметры и перенаправление:**
+  - Порт 80: HTTP (перенаправление 301 Permanent Redirect на `https://$host$request_uri`).
+  - Порт 443: HTTPS (обслуживание защищённого TLS-трафика).

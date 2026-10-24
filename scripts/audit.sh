@@ -42,5 +42,35 @@ check "Политика по умолчанию для входящего тра
 echo "[3] Учётные записи"
 awk -F: '$3>=1000 && $3<65534 {printf "  %s (uid=%s)\n",$1,$3}' /etc/passwd
 
+echo "[4] Веб-сервер"
+# а) служба nginx активна (systemctl is-active nginx)
+check "Служба Nginx активна" "active" "$(systemctl is-active nginx 2>/dev/null || echo 'inactive')"
+
+# б) конфигурация nginx синтаксически корректна (код возврата sudo nginx -t)
+if sudo nginx -t >/dev/null 2>&1; then
+    check "Конфигурация Nginx синтаксически корректна" "valid" "valid"
+else
+    check "Конфигурация Nginx синтаксически корректна" "valid" "syntax-error"
+fi
+
+# в) сертификат /etc/ssl/certs/devops.crt истекает не ранее чем через 30 дней (30 дней = 2592000 сек)
+CERT_FILE="/etc/ssl/certs/devops.crt"
+if [[ -f "$CERT_FILE" ]] && openssl x509 -checkend 2592000 -noout -in "$CERT_FILE" >/dev/null 2>&1; then
+    check "Сертификат TLS действителен более 30 дней" "valid" "valid"
+else
+    check "Сертификат TLS действителен более 30 дней" "valid" "expired-or-missing"
+fi
+
+# г) в каталоге ресурса нет файлов с правами записи для всех (find -perm -o+w) и права ключа равны 600
+KEY_FILE="/etc/ssl/private/devops.key"
+WORLD_WRITABLE=$(find /var/www/devops-site -perm -o+w 2>/dev/null | wc -l)
+KEY_PERMS=$(sudo stat -c '%a' "$KEY_FILE" 2>/dev/null || echo "000")
+
+if [[ "$WORLD_WRITABLE" -eq 0 && "$KEY_PERMS" == "600" ]]; then
+    check "Безопасность каталога (нет o+w) и права ключа 600" "secure" "secure"
+else
+    check "Безопасность каталога (нет o+w) и права ключа 600" "secure" "insecure (o+w: $WORLD_WRITABLE, key: $KEY_PERMS)"
+fi
+
 echo "Пройдено: $PASS, не пройдено: $FAIL"
 [[ $FAIL -eq 0 ]] && exit 0 || exit 1
