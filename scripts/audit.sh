@@ -36,7 +36,7 @@ check "Межсетевой экран активен" "active" "$(sudo ufw stat
 
 # TODO 3: проверьте, что политика по умолчанию для входящего трафика равна deny
 # источник данных: sudo ufw status verbose | grep Default
-default_incoming=$(sudo ufw status verbose | grep -i "Default:" | sed -E 's/.*incoming \(([^)]+)\).*/\1/')
+default_incoming=$(sudo ufw status verbose | awk '/Default:/{print $2}')
 check "Политика по умолчанию для входящего трафика равна deny" "deny" "$default_incoming"
 
 echo "[3] Учётные записи"
