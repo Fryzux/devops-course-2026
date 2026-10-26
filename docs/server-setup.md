@@ -95,3 +95,18 @@
 - **Сетевые параметры и перенаправление:**
   - Порт 80: HTTP (перенаправление 301 Permanent Redirect на `https://$host$request_uri`).
   - Порт 443: HTTPS (обслуживание защищённого TLS-трафика).
+
+
+## 9. Контейнеризация
+- **Способ установки Docker Engine и версия:** официальный репозиторий Docker (`https://download.docker.com/linux/ubuntu`), версия Docker Engine 29.9.2, Docker Compose v5.6.1.
+- **Участники группы docker:** `devops` (позволяет выполнять команды `docker` и `docker compose` без вызова `sudo`).
+- **Расположение проекта на сервере:** `/home/devops/app` (файлы `Dockerfile`, `docker-compose.yml`, `requirements.txt`, `app.py`, `.env`).
+- **Расположение файла .env и его права:** `/home/devops/app/.env`, владелец `devops:devops`, права `600` (`-rw-------`). Исключён из контекста сборки через `.dockerignore` и из репозитория Git через `.gitignore`.
+- **Публикуемые порты и адреса:**
+  - Сервис `app`: проброс порта `127.0.0.1:5000:5000` (доступен исключительно на локальной петле, недоступен из внешней сети).
+  - Сервис `db` (PostgreSQL): порт `5432` не опубликован на хост-систему, доступен только внутри изолированной сети Compose `backend`.
+- **Именованные тома:** `db_data` (каталог `/var/lib/docker/volumes/app_db_data/_data`, монтируется в `/var/lib/postgresql/data` в контейнере СУБД) для обеспечения постоянства данных при пересоздании контейнеров (`docker compose down` сохраняет том; удаление тома возможно только с флагом `-v`).
+- **Конфигурация обратного прокси-сервера (Nginx):**
+  - Блок `location /app/` в файле `/etc/nginx/sites-available/devops-site`.
+  - Директива `proxy_pass http://127.0.0.1:5000/;` (со слешем на конце для отсечения префикса `/app/`).
+  - Проброс заголовков: `Host $host`, `X-Real-IP $remote_addr`, `X-Forwarded-For $proxy_add_x_forwarded_for`, `X-Forwarded-Proto $scheme`.
