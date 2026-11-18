@@ -1,0 +1,6 @@
+---
+app_image: "ghcr.io/fryzux/devops-ci-app"
+app_tag: "7c752088a6373a8c81dc2017a4eef639cb437978"
+app_container_name: "devops-ci-app"
+app_host_port: 5000
+app_internal_port: 5000
